@@ -18,8 +18,10 @@ defmodule BrandoMCP.Brando do
   @seed_system_fields ~w(
     id
     creator_id
+    updated_by_id
     inserted_at
     updated_at
+    edited_at
     deleted_at
     rendered_at
     alternates
