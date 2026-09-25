@@ -23,6 +23,9 @@ defmodule BrandoMCP.Config do
   def translation_content_adapter,
     do: get(:translation_content_adapter, Module.concat(["Brando", "AI", "Translation"]))
 
+  def content_tools,
+    do: get(:content_tools, Module.concat(["Brando", "Content", "Proposals", "Tools"]))
+
   def repo, do: get(:repo, Module.concat(["Brando", "Repo"]))
   def user, do: get(:user)
   def user_resolver, do: get(:user_resolver)

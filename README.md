@@ -31,6 +31,47 @@ The server currently exposes:
 It also provides system and blueprint resources plus a
 `brando_content_workflow` prompt.
 
+### Content-proposal tools
+
+With a Brando version that has `Brando.Content.Proposals`, the server also
+exposes Brando's content-proposal tools. They read content and prepare changes
+for a user to review. No tool approves or applies anything; that happens only
+when the user confirms in the Brando admin.
+
+| Tool | Purpose |
+| --- | --- |
+| `brando_content_list_content_types` | Editable content types with block fields |
+| `brando_content_describe_content_type` | Editable fields and block fields |
+| `brando_content_search_entries` | Find entries the actor can edit |
+| `brando_content_entry_outline` | Fields and an outline of the root blocks |
+| `brando_content_list_modules` | Modules a block field accepts |
+| `brando_content_describe_module` | Text slots, media slots and variables |
+| `brando_content_list_attachments` | Media attached to the conversation |
+| `brando_content_search_assets` | Images and videos in the library |
+| `brando_content_prepare_proposal` | Validate changes and store them for review |
+
+These tools run only for an actor that the host has authenticated. A
+`user_id` argument and the configured `:user` are never used for them.
+
+## In-process use
+
+A host that has already authenticated a user calls tools as plain function
+calls. Nothing listens and nothing is mounted, so this works with every
+transport disabled:
+
+```elixir
+{:ok, result} =
+  BrandoMCP.Embedded.call_tool("brando_content_search_entries", %{"query" => "Sommerro"}, current_user,
+    conversation_id: conversation.id,
+    attachments: %{"image1" => %{kind: :image, id: 12, label: "lobby.jpg"}}
+  )
+```
+
+The actor in the handler state replaces any `user_id` argument, for the
+generic entry tools too. The Brando admin's content agent does not need
+BrandoMCP at all: it calls the same `Brando.Content.Proposals.Tools`
+directly.
+
 ## Installation
 
 Add BrandoMCP to a Brando application's dependencies:

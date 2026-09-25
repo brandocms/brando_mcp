@@ -126,8 +126,16 @@ defmodule BrandoMCP.Tools do
      }, state}
   end
 
+  for name <-
+        ~w(list_content_types describe_content_type search_entries entry_outline list_modules
+                 describe_module list_attachments search_assets prepare_proposal) do
+    def unquote(:"content_#{name}")(args, state),
+      do: BrandoMCP.Content.call(unquote(name), args, state)
+  end
+
   defp invoke(function, arguments, state) do
     adapter = Config.adapter()
+    arguments = with_actor(arguments, BrandoMCP.Content.actor(state))
 
     result =
       try do
@@ -156,6 +164,21 @@ defmodule BrandoMCP.Tools do
     end
   rescue
     exception -> {:error, Exception.message(exception), state}
+  end
+
+  # An actor from the host replaces any caller-supplied user. Atom keys cannot
+  # arrive from JSON, so a caller cannot forge `:__brando_actor__`.
+  defp with_actor(arguments, nil), do: arguments
+
+  defp with_actor(arguments, actor) do
+    # Adapter functions take the tool's params map as their last argument.
+    case List.pop_at(arguments, -1) do
+      {%{} = params, rest} when not is_struct(params) ->
+        rest ++ [params |> Map.drop(["user_id", :user_id]) |> Map.put(:__brando_actor__, actor)]
+
+      _ ->
+        arguments
+    end
   end
 
   defp value(map, key, default \\ nil) do
