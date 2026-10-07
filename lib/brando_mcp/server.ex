@@ -246,6 +246,89 @@ defmodule BrandoMCP.Server do
     run(&Tools.apply_translation/2)
   end
 
+  # Content-proposal tools. They run only for the actor the host puts in the
+  # handler state (see BrandoMCP.Embedded); none approves or applies content.
+
+  tool "brando_content_list_content_types",
+       "List the content types the actor can edit that have block fields." do
+    title("List editable content types")
+    annotations(%{readOnlyHint: true, destructiveHint: false, openWorldHint: false})
+    run(&Tools.content_list_content_types/2)
+  end
+
+  tool "brando_content_describe_content_type",
+       "Describe a content type's editable fields and block fields." do
+    title("Describe a content type")
+    param(:content_type, :string, required: true)
+    annotations(%{readOnlyHint: true, destructiveHint: false, openWorldHint: false})
+    run(&Tools.content_describe_content_type/2)
+  end
+
+  tool "brando_content_search_entries", "Search entries the actor can edit by title." do
+    title("Search entries")
+    param(:query, :string, required: true)
+    param(:content_type, :string)
+    param(:limit, :integer, default: 10)
+    annotations(%{readOnlyHint: true, destructiveHint: false, openWorldHint: false})
+    run(&Tools.content_search_entries/2)
+  end
+
+  tool "brando_content_entry_outline",
+       "Read an entry's fields and an outline of its root blocks with their uids." do
+    title("Outline an entry")
+    param(:content_type, :string, required: true)
+    param(:id, :integer, required: true)
+    annotations(%{readOnlyHint: true, destructiveHint: false, openWorldHint: false})
+    run(&Tools.content_entry_outline/2)
+  end
+
+  tool "brando_content_list_modules", "List the modules a block field accepts." do
+    title("List modules")
+    param(:content_type, :string, required: true)
+    param(:field, :string, default: "blocks")
+    annotations(%{readOnlyHint: true, destructiveHint: false, openWorldHint: false})
+    run(&Tools.content_list_modules/2)
+  end
+
+  tool "brando_content_describe_module",
+       "Describe a module's text slots, media slots and variables." do
+    title("Describe a module")
+    param(:module, :string, required: true)
+    annotations(%{readOnlyHint: true, destructiveHint: false, openWorldHint: false})
+    run(&Tools.content_describe_module/2)
+  end
+
+  tool "brando_content_list_attachments", "List the media attached to the conversation." do
+    title("List attachments")
+    annotations(%{readOnlyHint: true, destructiveHint: false, openWorldHint: false})
+    run(&Tools.content_list_attachments/2)
+  end
+
+  tool "brando_content_search_assets", "Search the media library for images or videos." do
+    title("Search media")
+    param(:kind, :string, required: true, enum: ["image", "video"])
+    param(:query, :string)
+    param(:limit, :integer, default: 10)
+    annotations(%{readOnlyHint: true, destructiveHint: false, openWorldHint: false})
+    run(&Tools.content_search_assets/2)
+  end
+
+  tool "brando_content_prepare_proposal",
+       "Validate a set of content operations and store it for the user to review in the Brando admin. Nothing is saved until the user approves it there." do
+    title("Prepare a content proposal")
+    param(:summary, :string, required: true)
+    param(:operations, {:array, :object}, required: true)
+
+    annotations(%{
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: false,
+      openWorldHint: false
+    })
+
+    run(&Tools.content_prepare_proposal/2)
+  end
+
   resource "brando://system", "Brando MCP runtime and safety configuration." do
     name("Brando system information")
     mime_type("application/json")

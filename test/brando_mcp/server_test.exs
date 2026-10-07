@@ -23,7 +23,7 @@ defmodule BrandoMCP.ServerTest do
 
   test "advertises Brando tools with safety annotations" do
     assert {:ok, tools, nil, _state} = BrandoMCP.Server.handle_list_tools(nil, %{})
-    assert length(tools) == 14
+    assert length(tools) == 23
 
     assert %{
              name: "brando_delete_entry",

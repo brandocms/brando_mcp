@@ -606,6 +606,8 @@ defmodule BrandoMCP.Brando do
 
   defp stringify_keys(_value), do: %{}
 
+  defp resolve_preview_user(%{__brando_actor__: actor}) when not is_nil(actor), do: {:ok, actor}
+
   defp resolve_preview_user(params) do
     if is_nil(value(params, :user_id)) do
       {:ok, Config.user() || :system}
@@ -1331,6 +1333,8 @@ defmodule BrandoMCP.Brando do
         end)
     end
   end
+
+  defp resolve_user(%{__brando_actor__: actor}) when not is_nil(actor), do: {:ok, actor}
 
   defp resolve_user(params) do
     configured_user = Config.user()

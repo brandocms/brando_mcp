@@ -102,6 +102,22 @@ defmodule BrandoMCP.BrandoTest do
                     [notify?: false, pubsub?: false, cast_blocks: true]}
   end
 
+  test "an in-process call writes as the host's actor, not a user_id argument or the configured user" do
+    actor = %{id: 3, name: "Signed in"}
+    Application.put_env(:brando_mcp, :writes_enabled, true)
+    Application.put_env(:brando_mcp, :user, %{id: 7, name: "Configured"})
+
+    assert {:ok, %{isError: nil}} =
+             "brando_create_entry"
+             |> BrandoMCP.Embedded.call_tool(
+               %{"blueprint" => "articles", "attributes" => %{"title" => "New"}, "user_id" => 7},
+               actor
+             )
+             |> then(fn {:ok, result} -> {:ok, Map.put_new(result, :isError, nil)} end)
+
+    assert_receive {:create_article, %{"title" => "New"}, ^actor, _opts}
+  end
+
   test "delete requires confirmation even when writes are enabled" do
     Application.put_env(:brando_mcp, :writes_enabled, true)
     Application.put_env(:brando_mcp, :user, :system)
