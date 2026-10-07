@@ -1,43 +1,25 @@
 defmodule BrandoMCP.Config do
   @moduledoc """
-  Runtime configuration for BrandoMCP.
+  Runtime configuration for BrandoMCP, read from the host application's
+  `:brando_mcp` environment.
 
-  Configuration is read from the host application's `:brando_mcp`
-  environment. Keeping it runtime-based lets one release use different
-  safety policies in development and production.
+      # config/dev.exs
+      config :brando_mcp, user: "dev@example.com"
+
+  `:user` is the email of the Brando user that `mix brando.mcp` runs as.
+  `--user` overrides it. There is no default user.
   """
 
-  @default_page_size 25
-  @max_page_size 100
-  @serializer_depth 3
-  @max_seed_batch_size 50
+  @doc "The email of the Brando user `mix brando.mcp` runs as, if configured."
+  def user, do: get(:user)
 
-  def adapter, do: get(:adapter, BrandoMCP.Brando)
-  def blueprints, do: get(:blueprints)
-  def include_brando_blueprints?, do: get(:include_brando_blueprints, false)
-  def default_page_size, do: get(:default_page_size, @default_page_size)
-  def max_page_size, do: get(:max_page_size, @max_page_size)
-  def max_seed_batch_size, do: get(:max_seed_batch_size, @max_seed_batch_size)
-  def serializer_depth, do: get(:serializer_depth, @serializer_depth)
-
-  def translation_content_adapter,
-    do: get(:translation_content_adapter, Module.concat(["Brando", "AI", "Translation"]))
-
+  @doc false
   def content_tools,
     do: get(:content_tools, Module.concat(["Brando", "Content", "Proposals", "Tools"]))
 
-  def repo, do: get(:repo, Module.concat(["Brando", "Repo"]))
-  def user, do: get(:user)
-  def user_resolver, do: get(:user_resolver)
-  def writable_blueprints, do: get(:writable_blueprints, :all)
+  @doc false
+  def users, do: get(:users, Module.concat(["Brando", "Users"]))
 
-  def writes_enabled? do
-    get(:writes_enabled, false) || truthy_env?(System.get_env("BRANDO_MCP_WRITES_ENABLED"))
-  end
-
-  def get(key, default \\ nil) do
-    Application.get_env(:brando_mcp, key, default)
-  end
-
-  defp truthy_env?(value), do: value in ["1", "true", "TRUE", "yes", "YES"]
+  @doc false
+  def get(key, default \\ nil), do: Application.get_env(:brando_mcp, key, default)
 end

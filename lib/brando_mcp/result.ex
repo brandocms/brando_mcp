@@ -1,60 +1,30 @@
 defmodule BrandoMCP.Result do
   @moduledoc false
 
-  alias BrandoMCP.JSON
+  # Brando's admin agent refuses a tool result over this size; MCP clients get
+  # the same bound, so a result never costs a model more here than in the admin.
+  @result_limit 24_000
 
   def ok(data) when is_map(data) do
-    normalized = JSON.normalize(data)
+    case Jason.encode(data) do
+      {:ok, json} when byte_size(json) > @result_limit ->
+        error("The result was too large (#{byte_size(json)} bytes). Narrow the request.")
 
-    %{
-      content: [%{type: "text", text: Jason.encode!(normalized, pretty: true)}],
-      structuredContent: normalized
-    }
+      {:ok, json} ->
+        %{content: [%{type: "text", text: json}], structuredContent: Jason.decode!(json)}
+
+      {:error, exception} ->
+        error("The result could not be encoded: #{Exception.message(exception)}")
+    end
   end
 
-  def error(reason) do
-    normalized = normalize_error(reason)
-    text = normalized |> Map.fetch!("error") |> error_text()
+  def error(message) do
+    message = if is_binary(message), do: message, else: inspect(message)
 
     %{
-      content: [%{type: "text", text: text}],
-      structuredContent: normalized,
+      content: [%{type: "text", text: message}],
+      structuredContent: %{"error" => message},
       isError: true
     }
   end
-
-  def normalize_error(%{__struct__: module} = changeset) when module == Ecto.Changeset do
-    %{
-      "error" => "validation_failed",
-      "valid" => Map.get(changeset, :valid?),
-      "action" => JSON.normalize(Map.get(changeset, :action)),
-      "errors" => normalize_changeset_errors(Map.get(changeset, :errors, []))
-    }
-  end
-
-  def normalize_error({:error, reason}), do: normalize_error(reason)
-
-  def normalize_error({kind, reason}) when is_atom(kind) do
-    %{"error" => Atom.to_string(kind), "reason" => JSON.normalize(reason)}
-  end
-
-  def normalize_error(reason) when is_binary(reason), do: %{"error" => reason}
-  def normalize_error(reason) when is_atom(reason), do: %{"error" => Atom.to_string(reason)}
-
-  def normalize_error(reason),
-    do: %{"error" => "operation_failed", "reason" => JSON.normalize(reason)}
-
-  defp normalize_changeset_errors(errors) do
-    Map.new(errors, fn {field, {message, metadata}} ->
-      rendered =
-        Enum.reduce(metadata, message, fn {key, value}, acc ->
-          String.replace(acc, "%{#{key}}", to_string(value))
-        end)
-
-      {to_string(field), rendered}
-    end)
-  end
-
-  defp error_text(value) when is_binary(value), do: value
-  defp error_text(value), do: inspect(value)
 end
