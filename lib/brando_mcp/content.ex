@@ -67,7 +67,11 @@ defmodule BrandoMCP.Content do
         actor: actor(state),
         conversation_id: state_value(state, :brando_conversation_id),
         proposal_id: state_value(state, :brando_proposal_id),
-        attachments: state_value(state, :brando_attachments) || %{}
+        attachments: state_value(state, :brando_attachments) || %{},
+        # Where proposals come from, for the admin's review screen. Brando
+        # versions without these fields ignore them (`struct/2`).
+        origin: state_value(state, :brando_origin),
+        client: state_value(state, :brando_client)
       )
 
     case registry.call(name, stringify(args), context) do

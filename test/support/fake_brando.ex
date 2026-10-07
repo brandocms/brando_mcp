@@ -6,7 +6,7 @@ defmodule BrandoMCP.Test.FakeTools do
 
   defmodule Context do
     @moduledoc false
-    defstruct [:actor, :conversation_id, :proposal_id, attachments: %{}]
+    defstruct [:actor, :conversation_id, :proposal_id, :origin, :client, attachments: %{}]
   end
 
   @names ~w(list_content_types describe_content_type search_entries entry_outline list_modules

@@ -34,6 +34,8 @@ defmodule BrandoMCP.Server do
     {:ok,
      %{
        brando_actor: opts[:actor],
+       brando_origin: :mcp,
+       brando_client: nil,
        brando_conversation_id: nil,
        brando_proposal_id: nil,
        brando_attachments: %{}
@@ -55,8 +57,30 @@ defmodule BrandoMCP.Server do
        "protocolVersion" => version,
        "serverInfo" => @server_info,
        "capabilities" => %{"tools" => %{}}
-     }, state}
+     }, Map.put(state, :brando_client, client_name(params["clientInfo"]))}
   end
+
+  # The connecting tool's name, for the admin's review screen ("From Claude
+  # Code via MCP"). Clients send a slug as `name` and a display `title`.
+  defp client_name(%{} = info) do
+    case info["title"] || info["name"] do
+      name when is_binary(name) ->
+        name
+        |> String.split(["\n", "\r"], parts: 2)
+        |> hd()
+        |> String.trim()
+        |> String.slice(0, 80)
+        |> case do
+          "" -> nil
+          name -> name
+        end
+
+      _ ->
+        nil
+    end
+  end
+
+  defp client_name(_info), do: nil
 
   @impl ExMCP.Server.Handler
   def handle_list_tools(_cursor, state), do: {:ok, Content.tools(), nil, state}
