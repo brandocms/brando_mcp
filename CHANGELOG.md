@@ -7,6 +7,10 @@ BrandoMCP no longer has a network endpoint. A remote endpoint, with OAuth 2.1,
 two-factor authentication and a `:connect_mcp` permission, will come later as
 its own work.
 
+### Features
+
+- **Proposals say which tool made them.** The stdio server passes `origin: :mcp` and the connecting client's name (its `clientInfo` title, else its name) into Brando's tool context, so the admin's review screen shows "From Claude Code via MCP". `BrandoMCP.Embedded.call_tool/4` takes `:origin` and `:client`. Brando versions without those fields ignore them.
+
 ### Breaking
 
 - **`plug BrandoMCP` is gone.** `BrandoMCP` is no longer a Plug, and the

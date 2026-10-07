@@ -9,6 +9,10 @@ defmodule BrandoMCP.Embedded do
         conversation_id: id, attachments: %{"image1" => %{kind: :image, id: 12, label: "lobby.jpg"}})
 
   The actor comes from the host, never from the arguments.
+
+  `:origin` and `:client` say where a proposal comes from (e.g.
+  `origin: :mcp, client: "Claude Code"`), for Brando's review screen. Leave
+  them out for the admin's own agent.
   """
 
   @doc """
@@ -18,6 +22,8 @@ defmodule BrandoMCP.Embedded do
   def call_tool(name, args, actor, opts \\ []) when not is_nil(actor) do
     state = %{
       brando_actor: actor,
+      brando_origin: opts[:origin],
+      brando_client: opts[:client],
       brando_conversation_id: opts[:conversation_id],
       brando_proposal_id: opts[:proposal_id],
       brando_attachments: opts[:attachments] || %{}

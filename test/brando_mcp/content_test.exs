@@ -122,4 +122,69 @@ defmodule BrandoMCP.ContentTest do
     assert {:ok, %{isError: true}} =
              BrandoMCP.Embedded.call_tool("brando_content_search_entries", %{}, @actor)
   end
+
+  describe "where proposals come from" do
+    setup do
+      Application.put_env(:brando_mcp, :test_pid, self())
+      on_exit(fn -> Application.delete_env(:brando_mcp, :test_pid) end)
+    end
+
+    test "the stdio server sends MCP and the client's title to Brando" do
+      {:ok, state} = BrandoMCP.Server.init(actor: @actor)
+
+      {:ok, _result, state} =
+        BrandoMCP.Server.handle_initialize(
+          %{
+            "protocolVersion" => "2025-06-18",
+            "clientInfo" => %{"name" => "claude-code", "title" => "Claude Code"}
+          },
+          state
+        )
+
+      {:ok, _result, _state} =
+        BrandoMCP.Server.handle_call_tool("brando_content_prepare_proposal", %{}, state)
+
+      assert_receive {:called, "prepare_proposal", _args,
+                      %FakeTools.Context{origin: :mcp, client: "Claude Code"}}
+    end
+
+    test "the client's name falls back to its slug, kept to one short line" do
+      {:ok, state} = BrandoMCP.Server.init(actor: @actor)
+      long = "codex\nsecond line " <> String.duplicate("x", 200)
+
+      {:ok, _result, state} =
+        BrandoMCP.Server.handle_initialize(%{"clientInfo" => %{"name" => long}}, state)
+
+      {:ok, _result, _state} =
+        BrandoMCP.Server.handle_call_tool("brando_content_search_entries", %{}, state)
+
+      assert_receive {:called, "search_entries", _args, %FakeTools.Context{client: "codex"}}
+    end
+
+    test "no client info leaves the client empty" do
+      {:ok, state} = BrandoMCP.Server.init(actor: @actor)
+      {:ok, _result, state} = BrandoMCP.Server.handle_initialize(%{}, state)
+
+      {:ok, _result, _state} =
+        BrandoMCP.Server.handle_call_tool("brando_content_search_entries", %{}, state)
+
+      assert_receive {:called, "search_entries", _args,
+                      %FakeTools.Context{origin: :mcp, client: nil}}
+    end
+
+    test "Embedded passes origin and client through, and leaves them out by default" do
+      BrandoMCP.Embedded.call_tool("brando_content_search_entries", %{}, @actor,
+        origin: :mcp,
+        client: "Codex"
+      )
+
+      assert_receive {:called, "search_entries", _args,
+                      %FakeTools.Context{origin: :mcp, client: "Codex"}}
+
+      BrandoMCP.Embedded.call_tool("brando_content_search_entries", %{}, @actor)
+
+      assert_receive {:called, "search_entries", _args,
+                      %FakeTools.Context{origin: nil, client: nil}}
+    end
+  end
 end
