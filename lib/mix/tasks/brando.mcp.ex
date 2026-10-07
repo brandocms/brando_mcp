@@ -1,26 +1,28 @@
 defmodule Mix.Tasks.Brando.Mcp do
   use Mix.Task
 
-  @shortdoc "Starts an optional standalone BrandoMCP transport"
+  @shortdoc "Serves Brando's content tools over stdio to a local coding agent (dev only)"
 
   @moduledoc """
-  Starts a standalone BrandoMCP transport after booting the current Mix
-  application.
+  Serves Brando's content-proposal tools over MCP stdio, for a local coding
+  agent such as Claude Code, as a named Brando user.
 
-      mix brando.mcp
-      mix brando.mcp --transport http --port 4001 --host 127.0.0.1
+      mix brando.mcp --user dev@example.com
 
-  The default transport is `stdio`. Phoenix applications should normally mount
-  `plug BrandoMCP` in their endpoint instead, so MCP shares the application's
-  existing HTTP server.
+  The user can also be configured, and `--user` overrides it:
+
+      # config/dev.exs
+      config :brando_mcp, user: "dev@example.com"
+
+  Every tool call carries that user's own permissions. The tools read content
+  and prepare proposals; approving and applying them happens in the Brando
+  admin.
+
+  This is a development tool. It refuses to start with `MIX_ENV=prod` or
+  inside a release, and it has no network transport.
   """
 
-  @switches [
-    transport: :string,
-    port: :integer,
-    host: :string,
-    include_brando: :boolean
-  ]
+  @switches [user: :string, transport: :string]
 
   @impl Mix.Task
   def run(args) do
@@ -30,47 +32,55 @@ defmodule Mix.Tasks.Brando.Mcp do
       Mix.raise("Invalid arguments: #{inspect(remaining ++ invalid)}")
     end
 
-    transport = transport!(Keyword.get(opts, :transport, "stdio"))
-    configure_stdio_logging(transport)
+    ensure_stdio!(opts[:transport])
+
+    with {:error, message} <- BrandoMCP.Stdio.ensure_dev(), do: Mix.raise(message)
+
+    configure_stdio_logging()
+    # Standard output carries only JSON-RPC messages: keep compiler output off it.
+    Mix.shell(Mix.Shell.Quiet)
     Mix.Task.run("app.start")
 
-    if Keyword.get(opts, :include_brando, false) do
-      Application.put_env(:brando_mcp, :include_brando_blueprints, true)
-    end
+    case BrandoMCP.Stdio.start(opts[:user] || BrandoMCP.Config.user()) do
+      {:ok, pid, user} ->
+        announce(user)
+        await(pid)
 
-    server_opts =
-      opts
-      |> Keyword.take([:port, :host])
-      |> Keyword.put(:transport, transport)
-
-    case BrandoMCP.Server.start_link(server_opts) do
-      {:ok, pid} ->
-        ref = Process.monitor(pid)
-
-        receive do
-          {:DOWN, ^ref, :process, ^pid, :normal} ->
-            :ok
-
-          {:DOWN, ^ref, :process, ^pid, reason} ->
-            Mix.raise("BrandoMCP stopped: #{inspect(reason)}")
-        end
-
-      {:error, reason} ->
-        Mix.raise("Could not start BrandoMCP: #{inspect(reason)}")
+      {:error, message} ->
+        Mix.raise(message)
     end
   end
 
-  defp transport!("stdio"), do: :stdio
-  defp transport!("http"), do: :http
-  defp transport!("beam"), do: :beam
-  defp transport!(transport), do: Mix.raise("Unsupported transport: #{transport}")
+  defp ensure_stdio!(nil), do: :ok
+  defp ensure_stdio!("stdio"), do: :ok
 
-  defp configure_stdio_logging(:stdio) do
+  defp ensure_stdio!(transport) do
+    Mix.raise("""
+    mix brando.mcp serves stdio only; --transport #{transport} is not available.
+
+    BrandoMCP has no HTTP or other network transport.
+    """)
+  end
+
+  defp await(pid) do
+    ref = Process.monitor(pid)
+
+    receive do
+      {:DOWN, ^ref, :process, ^pid, :normal} -> :ok
+      {:DOWN, ^ref, :process, ^pid, reason} -> Mix.raise("BrandoMCP stopped: #{inspect(reason)}")
+    end
+  end
+
+  # Standard output carries only JSON-RPC messages, so this goes to stderr.
+  defp announce(user) do
+    role = if Map.get(user, :role) == :superuser, do: " (a superuser)", else: ""
+    IO.puts(:stderr, "BrandoMCP: serving stdio as #{user.email}#{role}.")
+  end
+
+  defp configure_stdio_logging do
     Application.put_env(:ex_mcp, :stdio_mode, true)
     Application.put_env(:logger, :level, :emergency)
     Logger.configure(level: :emergency)
     :logger.set_primary_config(:level, :emergency)
   end
-
-  defp configure_stdio_logging(_transport), do: :ok
 end

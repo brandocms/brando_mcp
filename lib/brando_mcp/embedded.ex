@@ -3,14 +3,12 @@ defmodule BrandoMCP.Embedded do
   In-process tool calls, with no transport.
 
   A host that has already authenticated a user calls a tool as a plain
-  function call. Nothing listens, and nothing is mounted: this path works with
-  every MCP transport — Streamable HTTP, SSE and stdio — disabled.
+  function call. Nothing listens, and nothing is mounted.
 
       BrandoMCP.Embedded.call_tool("brando_content_search_entries", %{"query" => "Sommerro"}, user,
         conversation_id: id, attachments: %{"image1" => %{kind: :image, id: 12, label: "lobby.jpg"}})
 
-  The actor comes from the host, never from the arguments. For the generic
-  entry tools it replaces any `user_id` argument and the configured `:user`.
+  The actor comes from the host, never from the arguments.
   """
 
   @doc """

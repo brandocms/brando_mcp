@@ -1,173 +1,135 @@
-defmodule BrandoMCP.Test.FakeBlueprint do
-  defstruct [
-    :id,
-    :title,
-    :body,
-    :password_hint,
-    :language,
-    :status,
-    :author_id,
-    :cover_id
-  ]
+defmodule BrandoMCP.Test.FakeTools do
+  @moduledoc false
+  # Stands in for Brando.Content.Proposals.Tools: the same registry shape
+  # (definitions/0, call/3 with a Context struct). Every call is reported to
+  # the process in `config :brando_mcp, :test_pid`, whichever process runs it.
 
-  def __blueprint__, do: true
-
-  def __naming__ do
-    %{
-      application: "Demo",
-      domain: "Content",
-      schema: "Article",
-      singular: "article",
-      plural: "articles",
-      table_name: "content_articles",
-      id: "demo-content-article"
-    }
+  defmodule Context do
+    @moduledoc false
+    defstruct [:actor, :conversation_id, :proposal_id, attachments: %{}]
   end
 
-  def __modules__, do: %{context: BrandoMCP.Test.FakeContext}
+  @names ~w(list_content_types describe_content_type search_entries entry_outline list_modules
+            describe_module request_media look_at_media list_entry_media list_selection_options
+            list_attachments search_assets find_media_folders attach_folder prepare_proposal)
 
-  def __attributes__ do
-    [
-      %{name: :title, type: :text, opts: %{required: true}},
-      %{name: :body, type: :text, opts: %{}},
-      %{name: :language, type: :language, opts: %{values: [:en, :no]}},
-      %{name: :status, type: :status, opts: %{values: [:draft, :published]}}
-    ]
-  end
+  def names, do: @names
 
-  def __relations__, do: [%{name: :author, type: :belongs_to, opts: %{required: true}}]
-  def __assets__, do: [%{name: :cover, type: :image, opts: %{}}]
-  def __required_attrs__, do: [:title]
-  def __required_relations__, do: [:author]
-  def __required_assets__, do: []
-  def __traits__, do: [{BrandoMCP.Test.FakeTrait, [enabled: true]}]
-  def __forms__, do: [%{name: :default, default_params: %{"status" => "draft"}, fields: [:title]}]
-  def __form__, do: hd(__forms__())
-  def __factory__(attrs), do: Map.merge(%{status: :draft, language: :en}, attrs)
-  def __blocks_fields__, do: []
-  def __slug_fields__, do: []
-  def has_alternates?, do: false
-
-  def __listings__ do
-    [
+  def definitions do
+    for name <- @names do
       %{
-        name: :default,
-        query: %{order: "asc title"},
-        limit: 25,
-        sortable: true,
-        filters: [%{key: "title", label: "Title", type: :text, default: nil}],
-        sorts: []
+        name: name,
+        description: "Fake #{name}.",
+        parameters: %{type: "object", properties: %{query: %{type: "string"}}}
       }
-    ]
+    end
   end
 
-  def __schema__(:fields),
-    do: [:id, :title, :body, :password_hint, :language, :status, :author_id, :cover_id]
+  def call(name, args, %Context{} = context) when name in @names do
+    if pid = Application.get_env(:brando_mcp, :test_pid),
+      do: send(pid, {:called, name, args, context})
 
-  def __schema__(:associations), do: [:author]
-  def __schema__(:embeds), do: []
-  def __schema__(:primary_key), do: [:id]
-  def __schema__(:type, :id), do: :id
-  def __schema__(:type, :title), do: :string
-  def __schema__(:type, :body), do: :string
-  def __schema__(:type, :password_hint), do: :string
-  def __schema__(:type, :language), do: :string
-  def __schema__(:type, :status), do: :string
-  def __schema__(:type, :author_id), do: :id
-  def __schema__(:type, :cover_id), do: :id
-
-  def changeset(struct, attrs, _user, _sequence, _opts) do
-    title = Map.get(attrs, "title", Map.get(attrs, :title))
-    errors = if title in [nil, ""], do: [title: {"can't be blank", []}], else: []
-
-    %{
-      valid?: errors == [],
-      errors: errors,
-      changes: attrs,
-      data: struct
-    }
+    result(name, args, context)
   end
-end
 
-defmodule BrandoMCP.Test.FakeContext do
-  def list_articles(opts) do
-    notify({:list_articles, opts})
+  def call(name, _args, _context), do: {:error, "Unknown tool #{inspect(name)}."}
 
+  defp result("search_entries", args, context) do
     {:ok,
      %{
-       entries: [
-         %{id: 1, title: "First", body: "Body", password_hint: "never return this"}
-       ],
-       pagination_meta: %{total_entries: 1, total_pages: 1}
+       entries: [%{content_type: "pages", id: 1, title: "Sommerro", query: args["query"]}],
+       actor_id: context.actor.id
      }}
   end
 
-  def get_article(opts) do
-    notify({:get_article, opts})
+  defp result("prepare_proposal", %{"operations" => []}, _context),
+    do: {:error, "Operation 0: Unknown operation."}
 
-    id = get_in(opts, [:matches, :id])
-
+  defp result("prepare_proposal", _args, context) do
     {:ok,
-     %BrandoMCP.Test.FakeBlueprint{
-       id: id,
-       title: "First",
-       body: "<p>Hello {{ name }}</p>",
-       language: if(id == 99, do: :no, else: :en),
-       status: :draft
+     %{
+       proposal_id: "proposal-#{System.unique_integer([:positive])}",
+       refines: context.proposal_id,
+       note: "The user reviews and approves this in the admin. Nothing is saved yet."
      }}
   end
 
-  def create_article(attrs, user, opts) do
-    notify({:create_article, attrs, user, opts})
-    {:ok, Map.merge(%{id: 2}, attrs)}
+  defp result("entry_outline", _args, _context) do
+    deep =
+      Enum.reduce(1..8, %{text: "deepest"}, fn level, child ->
+        %{level: level, children: [child]}
+      end)
+
+    {:ok, %{blocks: [deep]}}
   end
 
-  def update_article(id, attrs, user, opts) do
-    notify({:update_article, id, attrs, user, opts})
-    {:ok, attrs |> Map.put("id", id)}
-  end
+  defp result("list_entry_media", _args, _context),
+    do: {:ok, %{media: List.duplicate(%{kind: :image, title: String.duplicate("x", 200)}, 200)}}
 
-  def delete_article(id, user) do
-    notify({:delete_article, id, user})
-    {:ok, %{id: id, deleted_at: ~N[2026-07-30 12:00:00]}}
-  end
+  defp result(_name, _args, _context), do: {:ok, %{ok: true}}
+end
 
-  def duplicate_article(id, user, opts) do
-    notify({:duplicate_article, id, user, opts})
-    language = opts |> Keyword.fetch!(:change_fields) |> Keyword.fetch!(:language)
+defmodule BrandoMCP.Test.FakeUsers do
+  @moduledoc false
+  # Stands in for Brando.Users.get_user/1 with a `matches: %{email: …}` lookup.
 
-    {:ok,
-     %BrandoMCP.Test.FakeBlueprint{
-       id: 99,
-       title: "First",
-       body: "<p>Hello {{ name }}</p>",
-       language: language,
-       status: :draft
-     }}
-  end
+  @users [
+    %{id: 7, email: "dev@example.com", active: true, deleted_at: nil, role: :editor},
+    %{id: 8, email: "inactive@example.com", active: false, deleted_at: nil, role: :editor},
+    %{
+      id: 9,
+      email: "gone@example.com",
+      active: true,
+      deleted_at: ~U[2026-01-01 00:00:00Z],
+      role: :editor
+    }
+  ]
 
-  defp notify(message) do
-    if pid = Application.get_env(:brando_mcp, :test_pid) do
-      send(pid, message)
+  def get_user(%{matches: %{email: email}}) do
+    case Enum.find(@users, &(&1.email == email)) do
+      nil -> {:error, {:user, :not_found}}
+      user -> {:ok, user}
     end
   end
 end
 
-defmodule BrandoMCP.Test.FakeTrait do
-end
+defmodule BrandoMCP.Test.Env do
+  @moduledoc false
+  import ExUnit.Callbacks, only: [on_exit: 1]
 
-defmodule BrandoMCP.Test.FakeTranslation do
-  def collect_translatable_content(entry, _schema) do
-    [
-      {:field, :title, entry.title},
-      {:field, :body, entry.body}
+  # Configure :brando_mcp for one test with the fakes, and restore the
+  # application and logger environment afterwards (the stdio server lowers
+  # the global log level).
+  def setup(overrides \\ []) do
+    original = Application.get_all_env(:brando_mcp)
+    logger_level = Logger.level()
+    primary = :logger.get_primary_config().level
+    stdio_mode = Application.get_env(:ex_mcp, :stdio_mode)
+    shell = Mix.shell()
+
+    on_exit(fn ->
+      for {key, _} <- Application.get_all_env(:brando_mcp),
+          do: Application.delete_env(:brando_mcp, key)
+
+      for {key, value} <- original, do: Application.put_env(:brando_mcp, key, value)
+      Logger.configure(level: logger_level)
+      Application.put_env(:logger, :level, logger_level)
+      :logger.set_primary_config(:level, primary)
+      Mix.shell(shell)
+
+      if is_nil(stdio_mode),
+        do: Application.delete_env(:ex_mcp, :stdio_mode),
+        else: Application.put_env(:ex_mcp, :stdio_mode, stdio_mode)
+    end)
+
+    defaults = [
+      content_tools: BrandoMCP.Test.FakeTools,
+      users: BrandoMCP.Test.FakeUsers,
+      test_pid: self()
     ]
-  end
 
-  def apply_translations(items, entry, schema) do
-    if pid = Application.get_env(:brando_mcp, :test_pid) do
-      send(pid, {:apply_translations, items, entry, schema})
-    end
+    for {key, value} <- Keyword.merge(defaults, overrides),
+        do: Application.put_env(:brando_mcp, key, value)
 
     :ok
   end
