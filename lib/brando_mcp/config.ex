@@ -21,5 +21,8 @@ defmodule BrandoMCP.Config do
   def users, do: get(:users, Module.concat(["Brando", "Users"]))
 
   @doc false
+  def activity, do: get(:activity, Module.concat(["Brando", "Activity"]))
+
+  @doc false
   def get(key, default \\ nil), do: Application.get_env(:brando_mcp, key, default)
 end

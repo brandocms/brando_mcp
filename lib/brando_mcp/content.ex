@@ -11,6 +11,12 @@ defmodule BrandoMCP.Content do
   They run only for the authenticated actor in the MCP handler state
   (`:brando_actor`), which the host sets: `BrandoMCP.Embedded.call_tool/4` and
   `mix brando.mcp` do. Nothing in a tool call's arguments can choose the user.
+
+  A call from an MCP client (origin `:mcp`, as over stdio) runs inside
+  `Brando.Activity.with_source(:mcp, %{"client" => name}, …)`, as Brando's own
+  MCP endpoint does: anything it records in Activity names the client rather
+  than the user it runs as. Brando versions without `with_source/3` run the
+  call as it is.
   """
   alias BrandoMCP.{Config, Result}
 
@@ -74,7 +80,7 @@ defmodule BrandoMCP.Content do
         client: state_value(state, :brando_client)
       )
 
-    case registry.call(name, stringify(args), context) do
+    case attributed(state, fn -> registry.call(name, stringify(args), context) end) do
       {:ok, %{proposal_id: id} = data} when name == "prepare_proposal" ->
         {:ok, Result.ok(data), Map.put(state, :brando_proposal_id, id)}
 
@@ -87,6 +93,22 @@ defmodule BrandoMCP.Content do
   rescue
     exception -> {:ok, Result.error(Exception.message(exception)), state}
   end
+
+  # A call from an MCP client is attributed to it in Brando's activity log.
+  # The admin's own agent (no origin) is left to Brando.
+  defp attributed(state, fun) do
+    activity = Config.activity()
+
+    if state_value(state, :brando_origin) == :mcp and Code.ensure_loaded?(activity) and
+         function_exported?(activity, :with_source, 3) do
+      activity.with_source(:mcp, client_details(state_value(state, :brando_client)), fun)
+    else
+      fun.()
+    end
+  end
+
+  defp client_details(client) when is_binary(client) and client != "", do: %{"client" => client}
+  defp client_details(_client), do: %{}
 
   defp tool(%{name: name} = definition) do
     %{

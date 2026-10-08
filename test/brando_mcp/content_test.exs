@@ -123,6 +123,60 @@ defmodule BrandoMCP.ContentTest do
              BrandoMCP.Embedded.call_tool("brando_content_search_entries", %{}, @actor)
   end
 
+  describe "Brando's activity log" do
+    test "a call from an MCP client is attributed to it, by name" do
+      assert {:ok, %{structuredContent: %{"proposal_id" => _}}} =
+               BrandoMCP.Embedded.call_tool("brando_content_prepare_proposal", %{}, @actor,
+                 origin: :mcp,
+                 client: "Claude Code"
+               )
+
+      assert_received {:with_source, :mcp, %{"client" => "Claude Code"}}
+      assert_received {:called_as, "prepare_proposal", {:mcp, %{"client" => "Claude Code"}}}
+    end
+
+    test "the stdio server attributes its calls to the client it initialized with" do
+      {:ok, state} = BrandoMCP.Server.init(actor: @actor)
+
+      {:ok, _result, state} =
+        BrandoMCP.Server.handle_initialize(
+          %{"protocolVersion" => "2025-06-18", "clientInfo" => %{"name" => "codex"}},
+          state
+        )
+
+      {:ok, _result, _state} =
+        BrandoMCP.Server.handle_call_tool("brando_content_search_entries", %{}, state)
+
+      assert_received {:called_as, "search_entries", {:mcp, %{"client" => "codex"}}}
+    end
+
+    test "without a client name the call is still MCP's" do
+      BrandoMCP.Embedded.call_tool("brando_content_search_entries", %{}, @actor, origin: :mcp)
+      assert_received {:called_as, "search_entries", {:mcp, details}}
+      assert details == %{}
+    end
+
+    test "the admin's own agent is left to Brando" do
+      BrandoMCP.Embedded.call_tool("brando_content_search_entries", %{}, @actor)
+      assert_received {:called, "search_entries", _, _}
+      refute_received {:with_source, _, _}
+      refute_received {:called_as, _, _}
+    end
+
+    test "a Brando without with_source/3 runs the call as it is" do
+      Application.put_env(:brando_mcp, :activity, Brando.Missing.Activity)
+
+      assert {:ok, %{structuredContent: %{"actor_id" => 1}}} =
+               BrandoMCP.Embedded.call_tool("brando_content_search_entries", %{}, @actor,
+                 origin: :mcp,
+                 client: "Claude Code"
+               )
+
+      assert_received {:called, "search_entries", _, _}
+      refute_received {:called_as, _, _}
+    end
+  end
+
   describe "where proposals come from" do
     setup do
       Application.put_env(:brando_mcp, :test_pid, self())

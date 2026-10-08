@@ -26,8 +26,12 @@ defmodule BrandoMCP.Test.FakeTools do
   end
 
   def call(name, args, %Context{} = context) when name in @names do
-    if pid = Application.get_env(:brando_mcp, :test_pid),
-      do: send(pid, {:called, name, args, context})
+    if pid = Application.get_env(:brando_mcp, :test_pid) do
+      send(pid, {:called, name, args, context})
+
+      if source = Process.get(:fake_activity_source),
+        do: send(pid, {:called_as, name, source})
+    end
 
     result(name, args, context)
   end
@@ -67,6 +71,27 @@ defmodule BrandoMCP.Test.FakeTools do
     do: {:ok, %{media: List.duplicate(%{kind: :image, title: String.duplicate("x", 200)}, 200)}}
 
   defp result(_name, _args, _context), do: {:ok, %{ok: true}}
+end
+
+defmodule BrandoMCP.Test.FakeActivity do
+  @moduledoc false
+  # Stands in for Brando.Activity.with_source/3: reports the attribution to
+  # the test process and marks the calls made inside it.
+
+  def with_source(source, details, fun) when is_map(details) do
+    if pid = Application.get_env(:brando_mcp, :test_pid),
+      do: send(pid, {:with_source, source, details})
+
+    previous = Process.put(:fake_activity_source, {source, details})
+
+    try do
+      fun.()
+    after
+      if previous,
+        do: Process.put(:fake_activity_source, previous),
+        else: Process.delete(:fake_activity_source)
+    end
+  end
 end
 
 defmodule BrandoMCP.Test.FakeUsers do
@@ -125,6 +150,7 @@ defmodule BrandoMCP.Test.Env do
     defaults = [
       content_tools: BrandoMCP.Test.FakeTools,
       users: BrandoMCP.Test.FakeUsers,
+      activity: BrandoMCP.Test.FakeActivity,
       test_pid: self()
     ]
 
