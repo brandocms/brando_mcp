@@ -118,6 +118,11 @@ there.
 one session, each new proposal refines the previous one, as in the admin's
 assistant. Approving and applying happen in the Brando admin.
 
+Each tool call runs inside `Brando.Activity.with_source(:mcp, …)` with the
+client's name, as Brando's own MCP endpoint does, so anything a call records in
+**Configuration → Activity** names the client rather than the user it runs as.
+Brando versions without `with_source/3` run the call unattributed.
+
 ## In-process use
 
 A host that has already authenticated a user calls tools as plain function
