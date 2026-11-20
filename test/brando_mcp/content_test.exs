@@ -27,6 +27,8 @@ defmodule BrandoMCP.ContentTest do
              annotations: %{readOnlyHint: true, destructiveHint: false}
            } = tools["brando_content_search_entries"]
 
+    assert %{readOnlyHint: true} = tools["brando_content_translation_work"].annotations
+
     for name <- ~w(brando_content_prepare_proposal brando_content_attach_folder) do
       assert %{readOnlyHint: false, destructiveHint: false} = tools[name].annotations
     end

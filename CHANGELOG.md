@@ -11,6 +11,8 @@ its own work.
 
 - **Proposals say which tool made them.** The stdio server passes `origin: :mcp` and the connecting client's name (its `clientInfo` title, else its name) into Brando's tool context, so the admin's review screen shows "From Claude Code via MCP". `BrandoMCP.Embedded.call_tool/4` takes `:origin` and `:client`. Brando versions without those fields ignore them.
 
+- **`brando_content_translation_work` is marked read-only.** Brando's tool for reading a synchronized translation's open work ([brandocms/brando#3743](https://github.com/brandocms/brando/issues/3743)) changes nothing, so clients need not ask before calling it.
+
 ### Breaking
 
 - **`plug BrandoMCP` is gone.** `BrandoMCP` is no longer a Plug, and the
