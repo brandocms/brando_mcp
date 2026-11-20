@@ -27,7 +27,7 @@ defmodule BrandoMCP.Content do
   # conversation, and any tool added to Brando later — are not read-only.
   @reads ~w(list_content_types describe_content_type search_entries entry_outline list_modules
             describe_module request_media look_at_media list_entry_media list_selection_options
-            list_attachments search_assets find_media_folders)
+            list_attachments search_assets find_media_folders translation_work)
 
   @doc "The MCP tool definitions; empty when this Brando version has no content tools."
   def tools do

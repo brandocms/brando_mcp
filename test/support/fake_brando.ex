@@ -11,7 +11,8 @@ defmodule BrandoMCP.Test.FakeTools do
 
   @names ~w(list_content_types describe_content_type search_entries entry_outline list_modules
             describe_module request_media look_at_media list_entry_media list_selection_options
-            list_attachments search_assets find_media_folders attach_folder prepare_proposal)
+            list_attachments search_assets find_media_folders translation_work attach_folder
+            prepare_proposal)
 
   def names, do: @names
 
